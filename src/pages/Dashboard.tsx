@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, GraduationCap } from "lucide-react";
 import StudentDashboard from "@/components/dashboard/StudentDashboard";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
+import FacultyDashboard from "@/components/dashboard/FacultyDashboard";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -28,6 +29,13 @@ const Dashboard = () => {
   });
 
   const isAdmin = userRole === 'admin';
+  const isFaculty = userRole === 'faculty';
+
+  const getPortalTitle = () => {
+    if (isAdmin) return "Administrator Dashboard";
+    if (isFaculty) return "Faculty Portal";
+    return "Student Portal";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-card">
@@ -40,7 +48,7 @@ const Dashboard = () => {
             <div>
               <h1 className="text-xl font-bold">Faculty Feedback System</h1>
               <p className="text-sm text-muted-foreground">
-                {isAdmin ? "Administrator Dashboard" : "Student Portal"}
+                {getPortalTitle()}
               </p>
             </div>
           </div>
@@ -65,6 +73,8 @@ const Dashboard = () => {
               <AdminDashboard />
             </TabsContent>
           </Tabs>
+        ) : isFaculty ? (
+          <FacultyDashboard />
         ) : (
           <StudentDashboard />
         )}
