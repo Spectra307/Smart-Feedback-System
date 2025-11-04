@@ -1,0 +1,17 @@
+com\smartfeedback\backend\entity\Report.class
+com\smartfeedback\backend\service\ReportGenerationService.class
+com\smartfeedback\backend\controller\ReportGenerationController.class
+com\smartfeedback\backend\entity\Feedback$Sentiment.class
+com\smartfeedback\backend\service\SentimentAnalysisService.class
+com\smartfeedback\backend\controller\SentimentAnalysisController$ErrorResponse.class
+com\smartfeedback\backend\dto\SentimentAnalysisResponse.class
+com\smartfeedback\backend\dto\ReportGenerationResponse.class
+com\smartfeedback\backend\config\CorsConfig.class
+com\smartfeedback\backend\SmartFeedbackBackendApplication.class
+com\smartfeedback\backend\repository\ReportRepository.class
+com\smartfeedback\backend\dto\SentimentAnalysisRequest.class
+com\smartfeedback\backend\controller\ReportGenerationController$ErrorResponse.class
+com\smartfeedback\backend\controller\SentimentAnalysisController.class
+com\smartfeedback\backend\repository\FeedbackRepository.class
+com\smartfeedback\backend\dto\ReportGenerationRequest.class
+com\smartfeedback\backend\entity\Feedback.class
