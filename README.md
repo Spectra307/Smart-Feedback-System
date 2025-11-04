@@ -1,73 +1,80 @@
-# Welcome to your Lovable project
+# Smart Feedback AI
 
-## Project info
+A full-stack application for analyzing user feedback, generating sentiment, and producing reports.
 
-**URL**: https://lovable.dev/projects/c1937065-21bf-413f-8059-591b37f18980
+- Backend: Spring Boot (Java) under `backend/smart-feedback-backend`
+- Frontend/Client: Node.js project at repo root (see `package.json`)
 
-## How can I edit this code?
+## Project Structure
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/c1937065-21bf-413f-8059-591b37f18980) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+.
+├─ backend/
+│  └─ smart-feedback-backend/
+│     ├─ src/main/java/com/smartfeedback/backend/
+│     │  ├─ config/
+│     │  ├─ controller/
+│     │  ├─ dto/
+│     │  ├─ entity/
+│     │  ├─ repository/
+│     │  └─ service/
+│     └─ src/test/java/com/smartfeedback/backend/
+├─ package.json
+└─ README.md
 ```
 
-**Edit a file directly in GitHub**
+Key Java classes live under `backend/smart-feedback-backend/src/main/java/com/smartfeedback/backend`, including:
+- `controller/ReportGenerationController.java`
+- `controller/SentimentAnalysisController.java`
+- `service/ReportGenerationService.java`
+- `service/SentimentAnalysisService.java`
+- `entity/Feedback.java`, `entity/Report.java`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Prerequisites
+- Java 17+
+- Maven 3.8+
+- Node.js 18+ and npm (for the client at repo root)
+- Git
 
-**Use GitHub Codespaces**
+## Backend: Run locally
+```bash
+cd backend/smart-feedback-backend
+mvn spring-boot:run
+```
+By default the API runs at `http://localhost:8080`.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Environment configuration (example):
+- API key authentication is enabled via a filter; set your key and header according to `config/ApiKeyAuthFilter.java`.
+- You can pass properties with `--spring-boot.run.arguments=--server.port=8081` if you need a different port.
 
-## What technologies are used for this project?
+### Example endpoints
+- POST `/api/sentiment/analyze` — perform sentiment analysis on feedback (see `SentimentAnalysisController`).
+- POST `/api/report/generate` — generate a report from submitted feedback (see `ReportGenerationController`).
 
-This project is built with:
+Request DTOs are in `dto/` (e.g., `SentimentAnalysisRequest.java`, `ReportGenerationRequest.java`).
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Frontend/Client: Run locally
+```bash
+npm install
+npm run dev
+```
+(Adjust scripts if your client uses a different dev command.)
 
-## How can I deploy this project?
+## Development
+- Format and style: follow the existing code style; avoid unnecessary changes.
+- Recommended JDK: Temurin 17 or higher.
+- Tests: run with `mvn test` inside `backend/smart-feedback-backend`.
 
-Simply open [Lovable](https://lovable.dev/projects/c1937065-21bf-413f-8059-591b37f18980) and click on Share -> Publish.
+## Build
+```bash
+cd backend/smart-feedback-backend
+mvn clean package
+```
+The runnable JAR will be in `target/`.
 
-## Can I connect a custom domain to my Lovable project?
+## Contributing
+- Open an issue for discussion before large changes.
+- Use feature branches and pull requests to `main`.
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## License
+Specify your license here (e.g., MIT) if applicable.
