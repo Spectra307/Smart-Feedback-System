@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { apiService, FeedbackResponse, Report } from "@/services/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Star, MessageSquare, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -7,64 +7,44 @@ import { Progress } from "@/components/ui/progress";
 
 const FacultyDashboard = () => {
   const { user } = useAuth();
-
-  const { data: profile } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-      return data;
-    },
-    enabled: !!user,
-  });
+  
+  // Get faculty name from user metadata or email
+  const facultyName = user?.user_metadata?.faculty_name || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
 
   const { data: feedback } = useQuery({
-    queryKey: ['facultyFeedback', profile?.faculty_name],
+    queryKey: ['facultyFeedback', facultyName],
     queryFn: async () => {
-      if (!profile?.faculty_name) return [];
-      const { data } = await supabase
-        .from('feedback')
-        .select('*')
-        .eq('faculty_name', profile.faculty_name)
-        .order('created_at', { ascending: false });
-      return data || [];
+      if (!facultyName) return [];
+      return await apiService.getFeedbackByFaculty(facultyName);
     },
-    enabled: !!profile?.faculty_name,
+    enabled: !!facultyName,
   });
 
-  const { data: latestReport } = useQuery({
-    queryKey: ['facultyReport', profile?.faculty_name],
+  const { data: reports } = useQuery({
+    queryKey: ['facultyReport', facultyName],
     queryFn: async () => {
-      if (!profile?.faculty_name) return null;
-      const { data } = await supabase
-        .from('reports')
-        .select('*')
-        .eq('faculty_name', profile.faculty_name)
-        .order('generated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      return data;
+      if (!facultyName) return [];
+      return await apiService.getReportsByFaculty(facultyName);
     },
-    enabled: !!profile?.faculty_name,
+    enabled: !!facultyName,
   });
 
-  if (!profile?.faculty_name) {
+  const latestReport = reports && reports.length > 0 ? reports[0] : null;
+
+  if (!facultyName) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Your account is not linked to a faculty profile yet. Please contact the administrator.</p>
+        <p className="text-muted-foreground">Please set your faculty name in your profile to view feedback.</p>
       </div>
     );
   }
 
   const avgTeaching = feedback && feedback.length > 0
-    ? (feedback.reduce((sum, f) => sum + f.teaching_quality, 0) / feedback.length).toFixed(2)
+    ? (feedback.reduce((sum, f) => sum + f.teachingQuality, 0) / feedback.length).toFixed(2)
     : "0.00";
   
   const avgCommunication = feedback && feedback.length > 0
-    ? (feedback.reduce((sum, f) => sum + f.communication_skill, 0) / feedback.length).toFixed(2)
+    ? (feedback.reduce((sum, f) => sum + f.communicationSkill, 0) / feedback.length).toFixed(2)
     : "0.00";
 
   const sentimentCounts = feedback?.reduce((acc, f) => {
@@ -92,7 +72,7 @@ const FacultyDashboard = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold">Faculty Portal</h2>
-        <p className="text-muted-foreground mt-2">Welcome, {profile.name} - View your feedback and performance analytics</p>
+        <p className="text-muted-foreground mt-2">Welcome, {facultyName} - View your feedback and performance analytics</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -138,11 +118,11 @@ const FacultyDashboard = () => {
           <CardHeader>
             <CardTitle>Latest Performance Summary</CardTitle>
             <CardDescription>
-              Generated on {new Date(latestReport.generated_at).toLocaleDateString()}
+              Generated on {new Date(latestReport.createdAt).toLocaleDateString()}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm">{latestReport.sentiment_summary}</p>
+            <p className="text-sm">{latestReport.sentimentSummary}</p>
           </CardContent>
         </Card>
       )}
@@ -177,10 +157,10 @@ const FacultyDashboard = () => {
         <CardContent>
           <div className="space-y-4">
             {feedback && feedback.length > 0 ? (
-              feedback.slice(0, 10).map((fb) => (
+              feedback.slice(0, 10).map((fb: FeedbackResponse) => (
                 <div key={fb.id} className="border-l-2 border-primary/20 pl-4 py-2">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-medium text-muted-foreground">{fb.course_name}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Student: {fb.studentName}</span>
                     <span className="text-xs text-muted-foreground">•</span>
                     <div className={`text-xs font-medium ${getSentimentColor(fb.sentiment || 'Neutral')}`}>
                       {fb.sentiment || 'Neutral'}
@@ -189,18 +169,18 @@ const FacultyDashboard = () => {
                   <div className="flex gap-4 mb-2">
                     <div className="flex items-center gap-1 text-sm">
                       <Star className="h-3 w-3 fill-chart-2 text-chart-2" />
-                      <span>Teaching: {fb.teaching_quality}/5</span>
+                      <span>Teaching: {fb.teachingQuality}/5</span>
                     </div>
                     <div className="flex items-center gap-1 text-sm">
                       <MessageSquare className="h-3 w-3 text-chart-5" />
-                      <span>Communication: {fb.communication_skill}/5</span>
+                      <span>Communication: {fb.communicationSkill}/5</span>
                     </div>
                   </div>
                   {fb.comment && (
                     <p className="text-sm text-muted-foreground italic">"{fb.comment}"</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(fb.created_at).toLocaleDateString()}
+                    {new Date(fb.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               ))

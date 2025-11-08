@@ -6,17 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { apiService, FeedbackResponse } from "@/services/api";
 import { Star, MessageSquare } from "lucide-react";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 const feedbackSchema = z.object({
   facultyName: z.string().trim().min(2, "Faculty name must be at least 2 characters"),
-  courseName: z.string().trim().min(2, "Course name must be at least 2 characters"),
   teachingQuality: z.number().min(1).max(5),
   communicationSkill: z.number().min(1).max(5),
-  comment: z.string().trim().max(1000, "Comment must be less than 1000 characters"),
+  comment: z.string().trim().max(1000, "Comment must be less than 1000 characters").optional(),
 });
 
 const StudentDashboard = () => {
@@ -24,49 +23,31 @@ const StudentDashboard = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [facultyName, setFacultyName] = useState("");
-  const [courseName, setCourseName] = useState("");
   const [teachingQuality, setTeachingQuality] = useState(0);
   const [communicationSkill, setCommunicationSkill] = useState(0);
   const [comment, setComment] = useState("");
 
+  // Get student name from user (fallback to email or "Student")
+  const studentName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Student';
+
   const { data: myFeedback } = useQuery({
-    queryKey: ['myFeedback', user?.id],
+    queryKey: ['myFeedback', studentName],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
+      return await apiService.getFeedbackByStudent(studentName);
     },
-    enabled: !!user,
+    enabled: !!studentName,
   });
 
   const submitFeedbackMutation = useMutation({
     mutationFn: async (feedbackData: z.infer<typeof feedbackSchema>) => {
-      // First, analyze sentiment
-      const { data: sentimentData, error: sentimentError } = await supabase.functions.invoke('analyze-sentiment', {
-        body: { comment: feedbackData.comment }
+      // Submit feedback - backend will analyze sentiment automatically
+      return await apiService.submitFeedback({
+        facultyName: feedbackData.facultyName,
+        studentName: studentName,
+        teachingQuality: feedbackData.teachingQuality,
+        communicationSkill: feedbackData.communicationSkill,
+        comment: feedbackData.comment || undefined,
       });
-
-      if (sentimentError) throw sentimentError;
-
-      // Then insert feedback with sentiment
-      const { error: insertError } = await supabase
-        .from('feedback')
-        .insert({
-          faculty_name: feedbackData.facultyName,
-          course_name: feedbackData.courseName,
-          teaching_quality: feedbackData.teachingQuality,
-          communication_skill: feedbackData.communicationSkill,
-          comment: feedbackData.comment,
-          sentiment: sentimentData.sentiment,
-          user_id: user!.id,
-        });
-
-      if (insertError) throw insertError;
     },
     onSuccess: () => {
       toast({
@@ -75,7 +56,6 @@ const StudentDashboard = () => {
       });
       // Reset form
       setFacultyName("");
-      setCourseName("");
       setTeachingQuality(0);
       setCommunicationSkill(0);
       setComment("");
@@ -96,10 +76,9 @@ const StudentDashboard = () => {
     try {
       const validatedData = feedbackSchema.parse({
         facultyName,
-        courseName,
         teachingQuality,
         communicationSkill,
-        comment,
+        comment: comment || undefined,
       });
 
       submitFeedbackMutation.mutate(validatedData);
@@ -146,27 +125,15 @@ const StudentDashboard = () => {
         </CardHeader>
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="facultyName">Faculty Name</Label>
-                <Input
-                  id="facultyName"
-                  placeholder="Dr. John Smith"
-                  value={facultyName}
-                  onChange={(e) => setFacultyName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="courseName">Course Name</Label>
-                <Input
-                  id="courseName"
-                  placeholder="Computer Science 101"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="facultyName">Faculty Name</Label>
+              <Input
+                id="facultyName"
+                placeholder="Dr. John Smith"
+                value={facultyName}
+                onChange={(e) => setFacultyName(e.target.value)}
+                required
+              />
             </div>
 
             <div className="space-y-4">
@@ -216,12 +183,11 @@ const StudentDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {myFeedback.map((feedback) => (
+              {myFeedback.map((feedback: FeedbackResponse) => (
                 <div key={feedback.id} className="border rounded-lg p-4 space-y-2">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold">{feedback.faculty_name}</h4>
-                      <p className="text-sm text-muted-foreground">{feedback.course_name}</p>
+                      <h4 className="font-semibold">{feedback.facultyName}</h4>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                       feedback.sentiment === 'Positive' ? 'bg-success/10 text-success' :
@@ -232,14 +198,14 @@ const StudentDashboard = () => {
                     </span>
                   </div>
                   <div className="flex gap-4 text-sm">
-                    <span>Teaching: {feedback.teaching_quality}/5</span>
-                    <span>Communication: {feedback.communication_skill}/5</span>
+                    <span>Teaching: {feedback.teachingQuality}/5</span>
+                    <span>Communication: {feedback.communicationSkill}/5</span>
                   </div>
                   {feedback.comment && (
                     <p className="text-sm text-muted-foreground mt-2">{feedback.comment}</p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    {new Date(feedback.created_at).toLocaleDateString()}
+                    {new Date(feedback.createdAt).toLocaleDateString()}
                   </p>
                 </div>
               ))}

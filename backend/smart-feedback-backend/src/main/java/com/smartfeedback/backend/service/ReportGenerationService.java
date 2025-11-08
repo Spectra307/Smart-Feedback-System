@@ -74,4 +74,14 @@ public class ReportGenerationService {
         
         return new ReportGenerationResponse(savedReport);
     }
+    
+    public List<Report> getAllReports() {
+        logger.info("Retrieving all reports");
+        return reportRepository.findAll();
+    }
+    
+    public List<Report> getReportsByFaculty(String facultyName) {
+        logger.info("Retrieving reports for faculty: {}", facultyName);
+        return reportRepository.findByFacultyNameOrderByCreatedAtDesc(facultyName);
+    }
 }

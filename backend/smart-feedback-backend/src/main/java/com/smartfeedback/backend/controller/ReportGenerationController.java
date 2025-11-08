@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/reports")
 @CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
@@ -50,6 +52,28 @@ public class ReportGenerationController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("Report Generation Service is running");
+    }
+    
+    @GetMapping
+    public ResponseEntity<?> getAllReports() {
+        try {
+            return ResponseEntity.ok(reportGenerationService.getAllReports());
+        } catch (Exception e) {
+            logger.error("Error retrieving reports: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Error retrieving reports: " + e.getMessage()));
+        }
+    }
+    
+    @GetMapping("/faculty/{facultyName}")
+    public ResponseEntity<?> getReportsByFaculty(@PathVariable String facultyName) {
+        try {
+            return ResponseEntity.ok(reportGenerationService.getReportsByFaculty(facultyName));
+        } catch (Exception e) {
+            logger.error("Error retrieving reports for faculty: {}", facultyName, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("Error retrieving reports: " + e.getMessage()));
+        }
     }
     
     // Inner class for error responses

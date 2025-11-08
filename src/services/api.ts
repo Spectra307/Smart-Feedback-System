@@ -31,6 +31,38 @@ export interface ReportGenerationResponse {
   };
 }
 
+export interface FeedbackRequest {
+  facultyName: string;
+  studentName: string;
+  teachingQuality: number;
+  communicationSkill: number;
+  comment?: string;
+}
+
+export interface FeedbackResponse {
+  id: number;
+  facultyName: string;
+  studentName: string;
+  teachingQuality: number;
+  communicationSkill: number;
+  comment?: string;
+  sentiment: string;
+  createdAt: string;
+}
+
+export interface Report {
+  id: number;
+  facultyName: string;
+  avgTeachingQuality: number;
+  avgCommunicationSkill: number;
+  sentimentSummary: string;
+  totalFeedbackCount: number;
+  positiveCount: number;
+  negativeCount: number;
+  neutralCount: number;
+  createdAt: string;
+}
+
 export interface ApiError {
   error: string;
 }
@@ -72,11 +104,13 @@ class ApiService {
     });
   }
 
-  async generateReport(request: ReportGenerationRequest): Promise<ReportGenerationResponse> {
-    return this.makeRequest<ReportGenerationResponse>('/reports/generate', {
+  async generateReport(request: ReportGenerationRequest): Promise<Report> {
+    const response = await this.makeRequest<ReportGenerationResponse>('/reports/generate', {
       method: 'POST',
       body: JSON.stringify(request),
     });
+    // Backend returns { report: Report }, so extract the report object
+    return response.report;
   }
 
   async checkHealth(): Promise<{ sentiment: string; reports: string }> {
@@ -89,6 +123,43 @@ class ApiService {
       sentiment: sentimentHealth.message,
       reports: reportsHealth.message,
     };
+  }
+
+  async submitFeedback(request: FeedbackRequest): Promise<FeedbackResponse> {
+    return this.makeRequest<FeedbackResponse>('/feedback', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getAllFeedback(): Promise<FeedbackResponse[]> {
+    return this.makeRequest<FeedbackResponse[]>('/feedback', {
+      method: 'GET',
+    });
+  }
+
+  async getFeedbackByStudent(studentName: string): Promise<FeedbackResponse[]> {
+    return this.makeRequest<FeedbackResponse[]>(`/feedback/student/${encodeURIComponent(studentName)}`, {
+      method: 'GET',
+    });
+  }
+
+  async getFeedbackByFaculty(facultyName: string): Promise<FeedbackResponse[]> {
+    return this.makeRequest<FeedbackResponse[]>(`/feedback/faculty/${encodeURIComponent(facultyName)}`, {
+      method: 'GET',
+    });
+  }
+
+  async getAllReports(): Promise<Report[]> {
+    return this.makeRequest<Report[]>('/reports', {
+      method: 'GET',
+    });
+  }
+
+  async getReportsByFaculty(facultyName: string): Promise<Report[]> {
+    return this.makeRequest<Report[]>(`/reports/faculty/${encodeURIComponent(facultyName)}`, {
+      method: 'GET',
+    });
   }
 }
 

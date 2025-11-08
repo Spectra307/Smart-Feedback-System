@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { apiService, FeedbackResponse, Report } from "@/services/api";
 import { BarChart3, FileText, TrendingUp } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,37 +17,22 @@ const AdminDashboard = () => {
   const { data: allFeedback } = useQuery({
     queryKey: ['allFeedback'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
+      return await apiService.getAllFeedback();
     },
   });
 
   const { data: reports } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('reports')
-        .select('*')
-        .order('generated_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
+      return await apiService.getAllReports();
     },
   });
 
   const generateReportMutation = useMutation({
     mutationFn: async (facultyName: string) => {
-      const { data, error } = await supabase.functions.invoke('generate-report', {
-        body: { facultyName }
-      });
-
-      if (error) throw error;
-      return data;
+      await apiService.generateReport({ facultyName });
+      // Return the faculty name so we can use it in onSuccess if needed
+      return facultyName;
     },
     onSuccess: () => {
       toast({
@@ -55,6 +40,7 @@ const AdminDashboard = () => {
         description: "The faculty report has been successfully generated.",
       });
       queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['allFeedback'] });
       setSelectedFaculty("");
     },
     onError: (error: any) => {
@@ -67,12 +53,12 @@ const AdminDashboard = () => {
   });
 
   // Get unique faculty names
-  const uniqueFaculties = [...new Set(allFeedback?.map(f => f.faculty_name) || [])];
+  const uniqueFaculties = [...new Set(allFeedback?.map(f => f.facultyName) || [])];
 
   // Calculate overall statistics
   const totalFeedback = allFeedback?.length || 0;
-  const avgTeachingQuality = allFeedback?.reduce((sum, f) => sum + f.teaching_quality, 0) / totalFeedback || 0;
-  const avgCommunicationSkill = allFeedback?.reduce((sum, f) => sum + f.communication_skill, 0) / totalFeedback || 0;
+  const avgTeachingQuality = allFeedback?.reduce((sum, f) => sum + f.teachingQuality, 0) / totalFeedback || 0;
+  const avgCommunicationSkill = allFeedback?.reduce((sum, f) => sum + f.communicationSkill, 0) / totalFeedback || 0;
   const positiveCount = allFeedback?.filter(f => f.sentiment === 'Positive').length || 0;
   const negativeCount = allFeedback?.filter(f => f.sentiment === 'Negative').length || 0;
   const neutralCount = allFeedback?.filter(f => f.sentiment === 'Neutral').length || 0;
@@ -191,13 +177,13 @@ const AdminDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {reports.map((report) => (
+              {reports.map((report: Report) => (
                 <div key={report.id} className="border rounded-lg p-6 space-y-4 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="text-lg font-semibold">{report.faculty_name}</h4>
+                      <h4 className="text-lg font-semibold">{report.facultyName}</h4>
                       <p className="text-sm text-muted-foreground">
-                        Generated on {new Date(report.generated_at).toLocaleDateString()}
+                        Generated on {new Date(report.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -205,11 +191,11 @@ const AdminDashboard = () => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="bg-muted/50 p-4 rounded-lg">
                       <div className="text-sm text-muted-foreground">Teaching Quality</div>
-                      <div className="text-2xl font-bold">{report.avg_teaching_quality.toFixed(2)}/5</div>
+                      <div className="text-2xl font-bold">{report.avgTeachingQuality.toFixed(2)}/5</div>
                     </div>
                     <div className="bg-muted/50 p-4 rounded-lg">
                       <div className="text-sm text-muted-foreground">Communication</div>
-                      <div className="text-2xl font-bold">{report.avg_communication_skill.toFixed(2)}/5</div>
+                      <div className="text-2xl font-bold">{report.avgCommunicationSkill.toFixed(2)}/5</div>
                     </div>
                   </div>
 
@@ -217,16 +203,16 @@ const AdminDashboard = () => {
                     <div className="text-sm font-medium mb-2">Sentiment Analysis</div>
                     <div className="flex gap-4 mb-3">
                       <span className="text-sm">
-                        <span className="text-success font-semibold">{report.positive_count}</span> Positive
+                        <span className="text-success font-semibold">{report.positiveCount}</span> Positive
                       </span>
                       <span className="text-sm">
-                        <span className="text-destructive font-semibold">{report.negative_count}</span> Negative
+                        <span className="text-destructive font-semibold">{report.negativeCount}</span> Negative
                       </span>
                       <span className="text-sm">
-                        <span className="text-warning font-semibold">{report.neutral_count}</span> Neutral
+                        <span className="text-warning font-semibold">{report.neutralCount}</span> Neutral
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">{report.sentiment_summary}</p>
+                    <p className="text-sm text-muted-foreground">{report.sentimentSummary}</p>
                   </div>
                 </div>
               ))}
