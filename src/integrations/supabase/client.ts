@@ -14,7 +14,9 @@ if (import.meta.env.DEV) {
   console.log('  All import.meta.env keys:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
 }
 
-// Validate environment variables with detailed error messages
+// Validate environment variables with detailed error messages (non-blocking)
+let hasErrors = false;
+
 if (!SUPABASE_URL) {
   const errorMsg = `
 ❌ CRITICAL: Missing VITE_SUPABASE_URL environment variable!
@@ -26,7 +28,7 @@ VITE_SUPABASE_ANON_KEY=your_anon_key_here
 After adding the .env file, restart the dev server (npm run dev).
   `.trim();
   console.error(errorMsg);
-  throw new Error('VITE_SUPABASE_URL is required. Please check your .env file.');
+  hasErrors = true;
 }
 
 if (!SUPABASE_ANON_KEY) {
@@ -40,25 +42,34 @@ VITE_SUPABASE_ANON_KEY=your_anon_key_here
 After adding the .env file, restart the dev server (npm run dev).
   `.trim();
   console.error(errorMsg);
-  throw new Error('VITE_SUPABASE_ANON_KEY is required. Please check your .env file.');
+  hasErrors = true;
 }
 
 // Validate URL format
-if (!SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsWith('https://')) {
+if (SUPABASE_URL && !SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsWith('https://')) {
   console.error('❌ Invalid VITE_SUPABASE_URL format. Must start with http:// or https://');
   console.error('   Current value:', SUPABASE_URL);
-  throw new Error('Invalid VITE_SUPABASE_URL format');
+  hasErrors = true;
+}
+
+// Use fallback values if environment variables are missing (prevents app crash)
+// The client will fail gracefully when used if these are invalid
+const finalUrl = SUPABASE_URL || 'https://placeholder.supabase.co';
+const finalKey = SUPABASE_ANON_KEY || 'placeholder-key';
+
+if (hasErrors) {
+  console.warn('⚠️ Supabase client initialized with placeholder values. Authentication will not work until .env is configured.');
 }
 
 // Log the actual URL being used (for debugging)
-if (import.meta.env.DEV) {
-  console.log('[Supabase Client] Initializing with URL:', SUPABASE_URL);
+if (import.meta.env.DEV && !hasErrors) {
+  console.log('[Supabase Client] Initializing with URL:', finalUrl);
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = createClient<Database>(finalUrl, finalKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
