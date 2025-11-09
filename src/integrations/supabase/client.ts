@@ -2,19 +2,28 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Get environment variables
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Get environment variables (trim whitespace in case .env has extra spaces)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim();
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
-// Debug logging (only in development)
+// Enhanced debug logging (only in development)
 if (import.meta.env.DEV) {
-  console.log('[Supabase Client] Environment check:');
-  console.log('  VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : '❌ MISSING');
-  console.log('  VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 20)}...` : '❌ MISSING');
-  console.log('  All import.meta.env keys:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
+  console.log('🔍 [Supabase Client] Environment Variable Check:');
+  console.log('  VITE_SUPABASE_URL:', SUPABASE_URL ? `✓ ${SUPABASE_URL.substring(0, 40)}...` : '❌ MISSING');
+  console.log('  VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `✓ ${SUPABASE_ANON_KEY.substring(0, 30)}...` : '❌ MISSING');
+  console.log('  Key length:', SUPABASE_ANON_KEY?.length || 0, 'characters');
+  console.log('  All VITE_* env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')).join(', '));
+  
+  // Check for common mistakes
+  if (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    console.warn('⚠️ Found VITE_SUPABASE_PUBLISHABLE_KEY (old name). Use VITE_SUPABASE_ANON_KEY instead.');
+  }
+  if (import.meta.env.VITE_SUPABASE_PROJECT_ID) {
+    console.log('  ℹ️ VITE_SUPABASE_PROJECT_ID found (not used by client, but OK)');
+  }
 }
 
-// Validate environment variables with detailed error messages (non-blocking)
+// Validate environment variables with detailed error messages
 let hasErrors = false;
 
 if (!SUPABASE_URL) {
@@ -52,18 +61,71 @@ if (SUPABASE_URL && !SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsW
   hasErrors = true;
 }
 
-// Use fallback values if environment variables are missing (prevents app crash)
-// The client will fail gracefully when used if these are invalid
+// Validate anon key format (should be a JWT token, typically starts with eyJ)
+if (SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('eyJ')) {
+  console.warn('⚠️ VITE_SUPABASE_ANON_KEY does not look like a valid JWT token (should start with "eyJ")');
+  console.warn('   Make sure you copied the "anon public" key from Supabase dashboard, not the service_role key');
+}
+
+// Validate URL matches expected project
+if (SUPABASE_URL && !SUPABASE_URL.includes('mrkcsaursmbvwpfzqdua')) {
+  console.warn('⚠️ VITE_SUPABASE_URL does not contain the expected project ID (mrkcsaursmbvwpfzqdua)');
+  console.warn('   Current URL:', SUPABASE_URL);
+}
+
+// Validate that the anon key matches the project URL
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  try {
+    // Decode JWT to check project ID
+    const keyParts = SUPABASE_ANON_KEY.split('.');
+    if (keyParts.length === 3) {
+      const payload = JSON.parse(atob(keyParts[1]));
+      const keyProjectId = payload.ref;
+      const urlProjectId = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+      
+      if (keyProjectId && urlProjectId && keyProjectId !== urlProjectId) {
+        console.error('❌ CRITICAL: API Key Mismatch!');
+        console.error(`   URL project ID: ${urlProjectId}`);
+        console.error(`   Key project ID: ${keyProjectId}`);
+        console.error('   The anon key is from a different Supabase project!');
+        console.error('   Solution: Get the correct anon key from your Supabase dashboard:');
+        console.error(`   https://app.supabase.com/project/${urlProjectId}/settings/api`);
+        hasErrors = true;
+      } else if (keyProjectId === urlProjectId) {
+        console.log('✅ API key matches project URL');
+      }
+    }
+  } catch (e) {
+    // If we can't decode, that's okay - just skip this validation
+    console.warn('⚠️ Could not validate key-project match (non-critical)');
+  }
+}
+
+// Use actual values, but provide fallbacks to prevent app crash
+// This allows the app to render even if configuration is wrong, but auth won't work
 const finalUrl = SUPABASE_URL || 'https://placeholder.supabase.co';
 const finalKey = SUPABASE_ANON_KEY || 'placeholder-key';
 
 if (hasErrors) {
-  console.warn('⚠️ Supabase client initialized with placeholder values. Authentication will not work until .env is configured.');
+  console.error('❌ Supabase client configuration has errors!');
+  console.error('   The app will render, but authentication will NOT work.');
+  console.error('   Please fix the .env file and restart the dev server.');
+  console.error('   Check the console messages above for specific issues.');
+  console.warn('⚠️ Using placeholder values - authentication will fail until .env is fixed.');
 }
 
-// Log the actual URL being used (for debugging)
-if (import.meta.env.DEV && !hasErrors) {
-  console.log('[Supabase Client] Initializing with URL:', finalUrl);
+// Log initialization status
+if (import.meta.env.DEV) {
+  if (!hasErrors && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    console.log('✅ [Supabase Client] Successfully initialized:');
+    console.log('   URL:', finalUrl);
+    console.log('   Key:', `${finalKey.substring(0, 20)}...${finalKey.substring(finalKey.length - 10)}`);
+    console.log('   Project ID:', finalUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || 'unknown');
+  } else {
+    console.log('⚠️ [Supabase Client] Initialized with issues (see errors above)');
+    console.log('   URL:', finalUrl);
+    console.log('   Status: App will render but authentication will fail');
+  }
 }
 
 // Import the supabase client like this:
@@ -74,5 +136,12 @@ export const supabase = createClient<Database>(finalUrl, finalKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  // Explicitly set headers to ensure apikey is sent correctly
+  global: {
+    headers: {
+      'apikey': finalKey,
+      'Authorization': `Bearer ${finalKey}`,
+    },
+  },
 });
