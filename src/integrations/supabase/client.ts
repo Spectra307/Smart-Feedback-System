@@ -2,13 +2,63 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
+// Get environment variables
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Debug logging (only in development)
+if (import.meta.env.DEV) {
+  console.log('[Supabase Client] Environment check:');
+  console.log('  VITE_SUPABASE_URL:', SUPABASE_URL ? `${SUPABASE_URL.substring(0, 30)}...` : '❌ MISSING');
+  console.log('  VITE_SUPABASE_ANON_KEY:', SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.substring(0, 20)}...` : '❌ MISSING');
+  console.log('  All import.meta.env keys:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
+}
+
+// Validate environment variables with detailed error messages
+if (!SUPABASE_URL) {
+  const errorMsg = `
+❌ CRITICAL: Missing VITE_SUPABASE_URL environment variable!
+
+Please create a .env file in the project root with:
+VITE_SUPABASE_URL=https://mrkcsaursmbvwpfzqdua.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
+
+After adding the .env file, restart the dev server (npm run dev).
+  `.trim();
+  console.error(errorMsg);
+  throw new Error('VITE_SUPABASE_URL is required. Please check your .env file.');
+}
+
+if (!SUPABASE_ANON_KEY) {
+  const errorMsg = `
+❌ CRITICAL: Missing VITE_SUPABASE_ANON_KEY environment variable!
+
+Please create a .env file in the project root with:
+VITE_SUPABASE_URL=https://mrkcsaursmbvwpfzqdua.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_key_here
+
+After adding the .env file, restart the dev server (npm run dev).
+  `.trim();
+  console.error(errorMsg);
+  throw new Error('VITE_SUPABASE_ANON_KEY is required. Please check your .env file.');
+}
+
+// Validate URL format
+if (!SUPABASE_URL.startsWith('http://') && !SUPABASE_URL.startsWith('https://')) {
+  console.error('❌ Invalid VITE_SUPABASE_URL format. Must start with http:// or https://');
+  console.error('   Current value:', SUPABASE_URL);
+  throw new Error('Invalid VITE_SUPABASE_URL format');
+}
+
+// Log the actual URL being used (for debugging)
+if (import.meta.env.DEV) {
+  console.log('[Supabase Client] Initializing with URL:', SUPABASE_URL);
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
